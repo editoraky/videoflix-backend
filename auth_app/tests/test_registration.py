@@ -6,10 +6,17 @@ name="email", name="password", name="confirmed_password", name="privacy_policy".
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from rest_framework import status
+from rest_framework.test import APITestCase
 
 from auth_app.api.serializers import RegistrationSerializer
 
 User = get_user_model()
+
+# The path is part of the contract, not an implementation detail: config.js
+# builds it as API_BASE_URL + "register/". Hardcoding it here means a renamed
+# route breaks the test instead of silently breaking the frontend.
+REGISTER_URL = "/api/register/"
 
 
 def payload(**overrides):
@@ -132,3 +139,59 @@ class RegistrationSerializerRejectionTests(TestCase):
         serializer = RegistrationSerializer(data=payload(email="taken@example.com"))
         serializer.is_valid()
         self.assertNotIn("taken@example.com", str(serializer.errors))
+
+
+class RegistrationEndpointTests(APITestCase):
+    """POST /api/register/ — status codes and response body per the API docs."""
+
+    def test_valid_registration_returns_201(self):
+        response = self.client.post(REGISTER_URL, payload(), format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_endpoint_is_reachable_without_authentication(self):
+        """DEFAULT_PERMISSION_CLASSES is IsAuthenticated, so this view must opt out.
+
+        Without AllowAny the registration endpoint would demand the very account
+        it is supposed to create.
+        """
+        response = self.client.post(REGISTER_URL, payload(), format="json")
+        self.assertNotEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertNotEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_response_body_matches_the_documentation(self):
+        """Documented shape: {"user": {"id": .., "email": ..}, "token": ".."}."""
+        response = self.client.post(REGISTER_URL, payload(), format="json")
+        self.assertIn("user", response.data)
+        self.assertIn("token", response.data)
+        self.assertEqual(sorted(response.data["user"].keys()), ["email", "id"])
+        self.assertEqual(response.data["user"]["email"], "new@example.com")
+
+    def test_account_is_created_and_locked(self):
+        self.client.post(REGISTER_URL, payload(), format="json")
+        user = User.objects.get(email="new@example.com")
+        self.assertFalse(user.is_active)
+        self.assertEqual(user.username, "new@example.com")
+
+    def test_no_password_leaks_into_the_response(self):
+        response = self.client.post(REGISTER_URL, payload(), format="json")
+        self.assertNotIn("SecurePass123", str(response.data))
+
+    def test_invalid_payload_returns_400(self):
+        """Contract C-13: registration failures answer with 400."""
+        response = self.client.post(
+            REGISTER_URL, payload(confirmed_password="Other123456"), format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_duplicate_email_returns_400_with_the_generic_message(self):
+        User.objects.create_user(
+            username="new@example.com", email="new@example.com", password="SecurePass123"
+        )
+        response = self.client.post(REGISTER_URL, payload(), format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Please check your input and try again.", str(response.data))
+
+    def test_extra_privacy_policy_field_does_not_break_the_endpoint(self):
+        """The consent checkbox always arrives, because getFormData() sends it."""
+        response = self.client.post(REGISTER_URL, payload(privacy_policy="on"), format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
