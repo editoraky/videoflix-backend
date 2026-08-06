@@ -5,7 +5,7 @@ name="email", name="password", name="confirmed_password", name="privacy_policy".
 """
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -162,9 +162,30 @@ class RegistrationEndpointTests(APITestCase):
         """Documented shape: {"user": {"id": .., "email": ..}, "token": ".."}."""
         response = self.client.post(REGISTER_URL, payload(), format="json")
         self.assertIn("user", response.data)
-        self.assertIn("token", response.data)
         self.assertEqual(sorted(response.data["user"].keys()), ["email", "id"])
         self.assertEqual(response.data["user"]["email"], "new@example.com")
+
+    @override_settings(DEBUG=True)
+    def test_activation_token_is_present_while_debugging(self):
+        """The API docs list a token and call it demonstration material.
+
+        Django forces DEBUG=False during tests, so the flag has to be restored
+        explicitly to exercise the documented shape.
+        """
+        response = self.client.post(REGISTER_URL, payload(), format="json")
+        self.assertIn("token", response.data)
+
+    @override_settings(DEBUG=False)
+    def test_activation_token_is_withheld_outside_debugging(self):
+        """Handing the token to the caller defeats the email verification.
+
+        Whoever registers could unlock the account without ever reading the
+        inbox, so the proof of address ownership would be worthless. The field
+        stays available where the documentation expects it — a development or
+        review setup running DEBUG=True — and disappears everywhere else.
+        """
+        response = self.client.post(REGISTER_URL, payload(), format="json")
+        self.assertNotIn("token", response.data)
 
     def test_account_is_created_and_locked(self):
         self.client.post(REGISTER_URL, payload(), format="json")

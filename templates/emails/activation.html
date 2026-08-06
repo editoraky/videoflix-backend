@@ -1,0 +1,72 @@
+{% comment %}
+Activation email, rebuilt from EmailTemplates_Backend/Designvorlage confirm_email.
+
+Written with table layout and inline styles on purpose: many mail clients strip
+<style> blocks, ignore flexbox and drop external stylesheets. The brand colours
+are the ones the frontend uses (variables.css): #2E3EDF for the button,
+#1C2739 for dark text, 40px corner radius.
+
+The wordmark is plain styled text rather than the SVG from the repo — Gmail and
+Outlook refuse to render SVG, and an external image would be blocked until the
+reader clicks "show images".
+{% endcomment %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Confirm your email</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f4f4f7;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+       style="background-color:#f4f4f7; padding:32px 16px;">
+    <tr>
+        <td align="center">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                   style="max-width:560px; background-color:#ffffff; border-radius:12px; padding:40px 32px;">
+                <tr>
+                    <td align="center" style="padding-bottom:32px;">
+                        <span style="font-family:Arial,Helvetica,sans-serif; font-size:28px; font-weight:bold;
+                                     letter-spacing:1px; color:#2E3EDF;">&#10148;&nbsp;VIDEOFLIX</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-family:Arial,Helvetica,sans-serif; font-size:16px; line-height:24px; color:#1C2739;">
+                        <p style="margin:0 0 16px 0;">Dear {{ user_name }},</p>
+                        <p style="margin:0 0 24px 0;">
+                            Thank you for registering with Videoflix. To complete your registration
+                            and verify your email address, please click the link below:
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td align="left" style="padding-bottom:32px;">
+                        <a href="{{ activation_link }}"
+                           style="display:inline-block; background-color:#2E3EDF; color:#ffffff;
+                                  font-family:Arial,Helvetica,sans-serif; font-size:16px; font-weight:bold;
+                                  text-decoration:none; padding:12px 32px; border-radius:40px;">
+                            Activate account
+                        </a>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-family:Arial,Helvetica,sans-serif; font-size:16px; line-height:24px; color:#1C2739;">
+                        <p style="margin:0 0 24px 0;">
+                            If you did not create an account with us, please disregard this email.
+                        </p>
+                        <p style="margin:0 0 4px 0;">Best regards,</p>
+                        <p style="margin:0;">Your Videoflix Team.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding-top:32px; font-family:Arial,Helvetica,sans-serif; font-size:12px;
+                               line-height:18px; color:#6b7280; word-break:break-all;">
+                        If the button does not work, copy this address into your browser:<br>
+                        <a href="{{ activation_link }}" style="color:#2E3EDF;">{{ activation_link }}</a>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>
