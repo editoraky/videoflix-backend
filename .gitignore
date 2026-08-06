@@ -1,0 +1,25 @@
+# Umgebungsvariablen mit Zugangsdaten
+# Die Vorlage .env.template wird bewusst versioniert, die .env niemals.
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Virtuelle Umgebung
+.venv/
+venv/
+
+# Django
+db.sqlite3
+/media/
+/static/
+
+# Entwicklungsumgebung
+.idea/
+.vscode/
+
+# Betriebssystem
+.DS_Store
+Thumbs.db
