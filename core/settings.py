@@ -174,6 +174,14 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
+# Custom user model
+# Must be in place before the very first migration: backend.entrypoint.sh runs
+# makemigrations and migrate on every container start, and Django cannot swap the
+# user model once auth_user exists.
+
+AUTH_USER_MODEL = 'auth_app.User'
+
+
 # Cross-origin requests
 # The frontend runs on a different port, so every request is cross-origin.
 # "localhost:5500" and "127.0.0.1:5500" are two distinct origins to a browser —
