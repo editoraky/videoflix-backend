@@ -10,8 +10,9 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
-from django.utils.encoding import force_str
-from django.utils.http import urlsafe_base64_decode
+from django.utils import timezone
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework.test import APITestCase
 
 User = get_user_model()
@@ -90,3 +91,108 @@ class ActivationEmailTests(APITestCase):
             format="json",
         )
         self.assertEqual(len(mail.outbox), 0)
+
+
+class ActivationEndpointTests(APITestCase):
+    """GET /api/activate/<uidb64>/<token>/ — unlocking the account.
+
+    The frontend calls this from activate.html after reading uid and token from
+    the query string, and displays result.message on success and on failure
+    (auth.js:263-282). So both cases need that key.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="locked@example.com",
+            email="locked@example.com",
+            password="SecurePass123",
+            is_active=False,
+        )
+        self.uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        self.token = default_token_generator.make_token(self.user)
+
+    def url(self, uid=None, token=None):
+        return f"/api/activate/{uid or self.uid}/{token or self.token}/"
+
+    def test_valid_link_returns_200(self):
+        response = self.client.get(self.url())
+        self.assertEqual(response.status_code, 200)
+
+    def test_valid_link_activates_the_account(self):
+        self.client.get(self.url())
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_active)
+
+    def test_success_body_matches_the_documentation(self):
+        """Documented: {"message": "Account successfully activated."}."""
+        response = self.client.get(self.url())
+        self.assertEqual(response.data, {"message": "Account successfully activated."})
+
+    def test_endpoint_is_reachable_without_authentication(self):
+        """Nobody can be logged in yet — the account is still locked."""
+        response = self.client.get(self.url())
+        self.assertNotIn(response.status_code, (401, 403))
+
+    def test_invalid_token_returns_400(self):
+        response = self.client.get(self.url(token="not-a-real-token"))
+        self.assertEqual(response.status_code, 400)
+
+    def test_invalid_token_leaves_the_account_locked(self):
+        self.client.get(self.url(token="not-a-real-token"))
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_active)
+
+    def test_unknown_uid_returns_400(self):
+        response = self.client.get(self.url(uid=urlsafe_base64_encode(force_bytes(9999))))
+        self.assertEqual(response.status_code, 400)
+
+    def test_malformed_uid_returns_400_instead_of_crashing(self):
+        """A hand-edited link must not produce a 500."""
+        response = self.client.get(self.url(uid="!!!not-base64!!!"))
+        self.assertEqual(response.status_code, 400)
+
+    def test_failure_body_carries_a_message_key(self):
+        """auth.js:268 reads result.message on failure too."""
+        response = self.client.get(self.url(token="not-a-real-token"))
+        self.assertIn("message", response.data)
+
+    def test_clicking_the_link_twice_stays_successful(self):
+        """Activation is idempotent, and that is deliberate.
+
+        Django's token hash covers pk, password, last_login, timestamp and email
+        — not is_active. Unlocking the account therefore does not invalidate the
+        token, and a second click would otherwise report "Activation failed" to
+        someone whose account is perfectly fine. Mail clients prefetching links
+        and users clicking twice are common enough that the confusing answer
+        would cost more than it protects: re-activating an active account
+        changes nothing.
+        """
+        first = self.client.get(self.url())
+        second = self.client.get(self.url())
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+
+    def test_first_login_invalidates_the_activation_link(self):
+        """last_login is part of the hash, so logging in retires the token.
+
+        That is the natural expiry of an activation link, alongside
+        PASSWORD_RESET_TIMEOUT (three days by default).
+        """
+        self.client.get(self.url())
+        self.user.refresh_from_db()
+        self.user.last_login = timezone.now()
+        self.user.save(update_fields=["last_login"])
+        self.assertFalse(default_token_generator.check_token(self.user, self.token))
+
+    def test_token_of_another_account_is_rejected(self):
+        other = User.objects.create_user(
+            username="other@example.com",
+            email="other@example.com",
+            password="SecurePass123",
+            is_active=False,
+        )
+        other_token = default_token_generator.make_token(other)
+        response = self.client.get(self.url(token=other_token))
+        self.assertEqual(response.status_code, 400)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_active)
