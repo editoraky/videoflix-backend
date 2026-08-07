@@ -204,12 +204,17 @@ CORS_ALLOW_CREDENTIALS = True
 # as a plain array (video_list.js:64).
 
 REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'auth_app.api.authentication.CookieJWTAuthentication',
+    ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
 }
 
-# DEFAULT_AUTHENTICATION_CLASSES is added once CookieJWTAuthentication exists.
+# Only the cookie class is listed. SimpleJWT's header-based JWTAuthentication is
+# left out on purpose: the frontend cannot send an Authorization header, so
+# allowing one would open a route nothing legitimate uses (contract C-1).
 
 
 # JSON Web Tokens
