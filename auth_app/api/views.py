@@ -6,6 +6,7 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .emails import send_activation_email
@@ -14,9 +15,11 @@ from .utils import (
     activate_user,
     blacklist_refresh_token,
     build_login_response_body,
+    build_refresh_response_body,
     build_registration_response,
     delete_auth_cookies,
     get_user_from_uidb64,
+    rotate_refresh_token,
     set_auth_cookies,
 )
 
@@ -26,6 +29,8 @@ LOGOUT_SUCCESS = (
     "Logout successful! All tokens will be deleted. Refresh token is now invalid."
 )
 LOGOUT_MISSING = "Refresh token missing."
+REFRESH_MISSING = "Refresh token missing."
+REFRESH_INVALID = "Invalid refresh token."
 
 
 class RegistrationView(APIView):
@@ -114,3 +119,31 @@ class LogoutView(APIView):
         blacklist_refresh_token(raw_token)
         response = Response({"detail": LOGOUT_SUCCESS}, status=status.HTTP_200_OK)
         return delete_auth_cookies(response)
+
+
+class TokenRefreshView(APIView):
+    """POST /api/token/refresh/ — issue a new access token from the cookie.
+
+    AllowAny by contract C-11: this endpoint exists for the moment the access
+    token has expired, so requiring a valid one would make it reachable only
+    when it is not needed. The refresh cookie is what gets checked.
+
+    ROTATE_REFRESH_TOKENS is on, which means the incoming refresh token is
+    retired and replaced. The new one has to be written back into the cookie —
+    otherwise the browser keeps a token that BLACKLIST_AFTER_ROTATION has just
+    invalidated, and the session dies at the next refresh instead of continuing.
+    """
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        """Rotate the token pair and refresh both cookies."""
+        raw_token = request.COOKIES.get(settings.AUTH_COOKIE_REFRESH)
+        if not raw_token:
+            return Response({"detail": REFRESH_MISSING}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            tokens = rotate_refresh_token(raw_token)
+        except TokenError:
+            return Response({"detail": REFRESH_INVALID}, status=status.HTTP_401_UNAUTHORIZED)
+        response = Response(build_refresh_response_body(tokens["access"]), status=200)
+        return set_auth_cookies(response, tokens["access"], tokens["refresh"])

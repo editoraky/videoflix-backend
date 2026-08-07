@@ -82,6 +82,39 @@ def blacklist_refresh_token(raw_token):
         return False
 
 
+def rotate_refresh_token(raw_token):
+    """Exchange a refresh token for a fresh pair, retiring the old one.
+
+    Raises TokenError if the token is malformed, expired or blacklisted, which
+    the caller turns into 401. A deleted account raises it too: the token stays
+    cryptographically sound, so only the lookup notices, and letting
+    DoesNotExist escape would answer a routine case with a 500.
+    """
+    old = RefreshToken(raw_token)
+    old.blacklist()
+    try:
+        user = User.objects.get(pk=old["user_id"])
+    except User.DoesNotExist:
+        raise TokenError("The account behind this token no longer exists")
+    new = RefreshToken.for_user(user)
+    return {"access": new.access_token, "refresh": new}
+
+
+def build_refresh_response_body(access_token):
+    """Return the body documented for POST /api/token/refresh/.
+
+    The API documentation lists an "access" field and labels it as material for
+    demonstration; the frontend ignores the body entirely. Exposing a token
+    there would hand JavaScript a copy of what HttpOnly is meant to keep away
+    from it, so the field is limited to a debugging setup — the same rule the
+    registration response follows.
+    """
+    body = {"detail": "Token refreshed"}
+    if settings.DEBUG:
+        body["access"] = str(access_token)
+    return body
+
+
 def build_login_response_body(user):
     """Return the body documented for POST /api/login/."""
     return {
