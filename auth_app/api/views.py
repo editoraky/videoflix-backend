@@ -1,5 +1,6 @@
 """Views for the authentication endpoints."""
 
+from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from rest_framework import status
 from rest_framework.permissions import AllowAny
@@ -11,14 +12,20 @@ from .emails import send_activation_email
 from .serializers import LoginSerializer, RegistrationSerializer
 from .utils import (
     activate_user,
+    blacklist_refresh_token,
     build_login_response_body,
     build_registration_response,
+    delete_auth_cookies,
     get_user_from_uidb64,
     set_auth_cookies,
 )
 
 ACTIVATION_SUCCESS = "Account successfully activated."
 ACTIVATION_FAILURE = "Activation failed."
+LOGOUT_SUCCESS = (
+    "Logout successful! All tokens will be deleted. Refresh token is now invalid."
+)
+LOGOUT_MISSING = "Refresh token missing."
 
 
 class RegistrationView(APIView):
@@ -84,3 +91,26 @@ class LoginView(APIView):
         refresh = RefreshToken.for_user(user)
         response = Response(build_login_response_body(user), status=status.HTTP_200_OK)
         return set_auth_cookies(response, refresh.access_token, refresh)
+
+
+class LogoutView(APIView):
+    """POST /api/logout/ — invalidate the refresh token and clear both cookies.
+
+    AllowAny is required by contract C-11: logging out is needed precisely when
+    the access token has expired. Demanding a valid one would leave the cookies
+    stuck in the browser forever. What is checked instead is the refresh cookie.
+
+    Blacklisting matters beyond deleting the cookie: a token copied out of the
+    browser earlier would otherwise stay valid for its full lifetime.
+    """
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        """Blacklist the refresh token if usable, then clear the cookies."""
+        raw_token = request.COOKIES.get(settings.AUTH_COOKIE_REFRESH)
+        if not raw_token:
+            return Response({"detail": LOGOUT_MISSING}, status=status.HTTP_400_BAD_REQUEST)
+        blacklist_refresh_token(raw_token)
+        response = Response({"detail": LOGOUT_SUCCESS}, status=status.HTTP_200_OK)
+        return delete_auth_cookies(response)

@@ -5,6 +5,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
 
@@ -53,6 +55,31 @@ def set_auth_cookies(response, access_token, refresh_token):
             path="/",
         )
     return response
+
+
+def delete_auth_cookies(response):
+    """Clear both auth cookies and return the response.
+
+    The path has to match the one used when setting them, otherwise the browser
+    keeps the original cookie and only drops a second, differently scoped one.
+    """
+    for name in (settings.AUTH_COOKIE_ACCESS, settings.AUTH_COOKIE_REFRESH):
+        response.delete_cookie(key=name, path="/", samesite="Lax")
+    return response
+
+
+def blacklist_refresh_token(raw_token):
+    """Invalidate a refresh token; return False if it was unusable anyway.
+
+    Failure is not worth reporting to the caller: an expired or malformed token
+    grants nothing, and the point of logging out is already achieved by clearing
+    the cookies.
+    """
+    try:
+        RefreshToken(raw_token).blacklist()
+        return True
+    except TokenError:
+        return False
 
 
 def build_login_response_body(user):
