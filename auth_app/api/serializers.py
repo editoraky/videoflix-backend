@@ -1,6 +1,6 @@
 """Serializers for authentication endpoints."""
 
-from django.contrib.auth import get_user_model
+from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
@@ -63,3 +63,43 @@ class RegistrationSerializer(serializers.ModelSerializer):
             password=validated_data["password"],
             is_active=False,
         )
+
+
+class LoginSerializer(serializers.Serializer):
+    """Turns email and password into an authenticated user, or refuses.
+
+    login.html posts email and password. Since USERNAME_FIELD stayed "username",
+    the account is looked up by address first and authenticated afterwards.
+
+    authenticate() also enforces is_active, so a registered but unconfirmed
+    account is refused here — with the same message as every other failure.
+    """
+
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        """Attach the authenticated user, or raise the one generic error.
+
+        The error is wrapped in "detail" so login and registration answer with
+        the same shape; DRF would otherwise file it under non_field_errors.
+        """
+        user = self._authenticate_by_email(attrs["email"], attrs["password"])
+        if user is None:
+            raise serializers.ValidationError({"detail": [GENERIC_ERROR]})
+        attrs["user"] = user
+        return attrs
+
+    @staticmethod
+    def _authenticate_by_email(email, password):
+        """Return the matching active account, or None.
+
+        The dummy hash for unknown addresses is not decoration: without it the
+        answer comes back measurably faster when no account exists, and the
+        login form turns into a lookup service for valid addresses.
+        """
+        user = User.objects.filter(email=email).first()
+        if user is None:
+            User().set_password(password)
+            return None
+        return authenticate(username=user.username, password=password)

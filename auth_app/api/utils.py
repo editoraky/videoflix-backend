@@ -28,6 +28,41 @@ def activate_user(user):
     user.save(update_fields=["is_active"])
 
 
+def set_auth_cookies(response, access_token, refresh_token):
+    """Attach both JWTs as HttpOnly cookies and return the response.
+
+    Contract C-1: the frontend never reads a token from a body. Every request
+    uses credentials: 'include' and depends on these cookies coming back.
+
+    httponly keeps JavaScript out, so an XSS cannot lift the session.
+    secure follows DEBUG because a Secure cookie is dropped over plain HTTP,
+    which is what local development runs on.
+    samesite="Lax" works as long as frontend and backend share a host — see
+    FALLSTRICKE F-26 on why localhost and 127.0.0.1 must not be mixed.
+    """
+    for name, token in (
+        (settings.AUTH_COOKIE_ACCESS, access_token),
+        (settings.AUTH_COOKIE_REFRESH, refresh_token),
+    ):
+        response.set_cookie(
+            key=name,
+            value=str(token),
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite="Lax",
+            path="/",
+        )
+    return response
+
+
+def build_login_response_body(user):
+    """Return the body documented for POST /api/login/."""
+    return {
+        "detail": "Login successful",
+        "user": {"id": user.id, "username": user.username},
+    }
+
+
 def build_registration_response(user):
     """Return the response body documented for POST /api/register/.
 

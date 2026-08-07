@@ -5,10 +5,17 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .emails import send_activation_email
-from .serializers import RegistrationSerializer
-from .utils import activate_user, build_registration_response, get_user_from_uidb64
+from .serializers import LoginSerializer, RegistrationSerializer
+from .utils import (
+    activate_user,
+    build_login_response_body,
+    build_registration_response,
+    get_user_from_uidb64,
+    set_auth_cookies,
+)
 
 ACTIVATION_SUCCESS = "Account successfully activated."
 ACTIVATION_FAILURE = "Activation failed."
@@ -56,3 +63,24 @@ class ActivationView(APIView):
             return Response({"message": ACTIVATION_FAILURE}, status=status.HTTP_400_BAD_REQUEST)
         activate_user(user)
         return Response({"message": ACTIVATION_SUCCESS}, status=status.HTTP_200_OK)
+
+
+class LoginView(APIView):
+    """POST /api/login/ — authenticate and hand out both cookies.
+
+    Answers 401 on every failure, whether the password was wrong, the address
+    unknown or the account still locked. Telling them apart would turn the form
+    into a lookup service for registered addresses (checklist US 2).
+    """
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        """Authenticate, issue the token pair, set the cookies, answer 200."""
+        serializer = LoginSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_401_UNAUTHORIZED)
+        user = serializer.validated_data["user"]
+        refresh = RefreshToken.for_user(user)
+        response = Response(build_login_response_body(user), status=status.HTTP_200_OK)
+        return set_auth_cookies(response, refresh.access_token, refresh)
