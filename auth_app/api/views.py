@@ -9,8 +9,13 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .emails import send_activation_email
-from .serializers import LoginSerializer, RegistrationSerializer
+from .emails import send_activation_email, send_password_reset_email
+from .serializers import (
+    LoginSerializer,
+    PasswordConfirmSerializer,
+    PasswordResetRequestSerializer,
+    RegistrationSerializer,
+)
 from .utils import (
     activate_user,
     blacklist_refresh_token,
@@ -18,9 +23,11 @@ from .utils import (
     build_refresh_response_body,
     build_registration_response,
     delete_auth_cookies,
+    find_resettable_account,
     get_user_from_uidb64,
     rotate_refresh_token,
     set_auth_cookies,
+    set_new_password,
 )
 
 ACTIVATION_SUCCESS = "Account successfully activated."
@@ -31,6 +38,9 @@ LOGOUT_SUCCESS = (
 LOGOUT_MISSING = "Refresh token missing."
 REFRESH_MISSING = "Refresh token missing."
 REFRESH_INVALID = "Invalid refresh token."
+RESET_SENT = "An email has been sent to reset your password."
+RESET_DONE = "Your Password has been successfully reset."
+RESET_FAILED = "Password reset failed."
 
 
 class RegistrationView(APIView):
@@ -147,3 +157,44 @@ class TokenRefreshView(APIView):
             return Response({"detail": REFRESH_INVALID}, status=status.HTTP_401_UNAUTHORIZED)
         response = Response(build_refresh_response_body(tokens["access"]), status=200)
         return set_auth_cookies(response, tokens["access"], tokens["refresh"])
+
+
+class PasswordResetRequestView(APIView):
+    """POST /api/password_reset/ — send a reset link, and say nothing more.
+
+    Contract C-12 and checklist US 4: the answer is identical for every address.
+    A different status, message or timing would let anyone check which addresses
+    hold an account, so the lookup happens after the response text is already
+    decided.
+    """
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        """Mail a link if the address belongs to an active account."""
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        if serializer.is_valid():
+            user = find_resettable_account(serializer.validated_data["email"])
+            if user is not None:
+                send_password_reset_email(user)
+        return Response({"detail": RESET_SENT}, status=status.HTTP_200_OK)
+
+
+class PasswordConfirmView(APIView):
+    """POST /api/password_confirm/<uidb64>/<token>/ — set the new password.
+
+    Single-use by construction: the password hash is part of the token
+    signature, so changing it retires the link without any extra bookkeeping.
+    """
+
+    permission_classes = [AllowAny]
+
+    def post(self, request, uidb64, token):
+        """Validate link and payload, then replace the password."""
+        user = get_user_from_uidb64(uidb64)
+        if user is None or not default_token_generator.check_token(user, token):
+            return Response({"detail": RESET_FAILED}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = PasswordConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        set_new_password(user, serializer.validated_data["new_password"])
+        return Response({"detail": RESET_DONE}, status=status.HTTP_200_OK)

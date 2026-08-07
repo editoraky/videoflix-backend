@@ -103,3 +103,31 @@ class LoginSerializer(serializers.Serializer):
             User().set_password(password)
             return None
         return authenticate(username=user.username, password=password)
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    """Accepts the address a reset link was asked for.
+
+    Deliberately thin: whether an account exists is decided in the view, not
+    here, because contract C-12 forbids letting that show in the response.
+    """
+
+    email = serializers.EmailField()
+
+
+class PasswordConfirmSerializer(serializers.Serializer):
+    """Validates the new password pair.
+
+    Field names come from auth.js:204-207, which maps the form onto
+    new_password and confirm_password before sending.
+    """
+
+    new_password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        """Require both fields to match and to survive Django's validators."""
+        if attrs["new_password"] != attrs["confirm_password"]:
+            raise serializers.ValidationError({"detail": [GENERIC_ERROR]})
+        validate_password(attrs["new_password"])
+        return attrs

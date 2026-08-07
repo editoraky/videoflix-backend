@@ -140,3 +140,19 @@ def build_registration_response(user):
     if settings.DEBUG:
         body["token"] = default_token_generator.make_token(user)
     return body
+
+
+def find_resettable_account(email):
+    """Return the active account for an address, or None.
+
+    Inactive accounts are skipped: someone who never confirmed their address
+    has to finish activation rather than set a new password through a link sent
+    to an address nobody proved they own.
+    """
+    return User.objects.filter(email=email, is_active=True).first()
+
+
+def set_new_password(user, raw_password):
+    """Store a new password, replacing the old hash."""
+    user.set_password(raw_password)
+    user.save(update_fields=["password"])

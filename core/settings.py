@@ -247,4 +247,9 @@ EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", default="")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", default="noreply@videoflix.local")
 
+# The reset email states a validity of 24 hours, so the token must not outlive
+# that claim. Django's default is three days. The same generator issues the
+# activation token, which therefore expires after 24 hours as well.
+PASSWORD_RESET_TIMEOUT = 60 * 60 * 24
+
 FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", default="http://localhost:5500")

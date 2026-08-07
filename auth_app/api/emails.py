@@ -9,6 +9,8 @@ from django.utils.http import urlsafe_base64_encode
 
 ACTIVATION_PATH = "/pages/auth/activate.html"
 ACTIVATION_SUBJECT = "Confirm your email"
+RESET_PATH = "/pages/auth/confirm_password.html"
+RESET_SUBJECT = "Reset your Password"
 
 
 def build_activation_link(user):
@@ -38,4 +40,29 @@ def send_activation_email(user):
         to=[user.email],
     )
     message.attach_alternative(render_to_string("emails/activation.html", context), "text/html")
+    message.send()
+
+
+def build_reset_link(user):
+    """Return the password reset URL that belongs in the email.
+
+    Same shape as the activation link and for the same reason: the frontend
+    reads uid and token from the query string and calls the API itself.
+    """
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    return f"{settings.FRONTEND_BASE_URL}{RESET_PATH}?uid={uid}&token={token}"
+
+
+def send_password_reset_email(user):
+    """Send the reset email as plain text with an HTML alternative."""
+    context = {"reset_link": build_reset_link(user)}
+    message = EmailMultiAlternatives(
+        subject=RESET_SUBJECT,
+        body=render_to_string("emails/password_reset.txt", context),
+        to=[user.email],
+    )
+    message.attach_alternative(
+        render_to_string("emails/password_reset.html", context), "text/html"
+    )
     message.send()
