@@ -14,12 +14,24 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from django.conf import settings
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
+from django.views.static import serve
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('django-rq/', include('django_rq.urls')),
     path('api/', include('auth_app.api.urls')),
     path('api/', include('video_app.api.urls')),
+
+    # Thumbnails are public because the frontend loads them as plain images.
+    # Only this subtree is routed: MEDIA_ROOT also holds the uploaded source
+    # files, and serving those would hand out the complete film without a
+    # login, past the HLS endpoints that exist to prevent exactly that.
+    re_path(
+        r'^media/thumbnails/(?P<path>.*)$',
+        serve,
+        {'document_root': settings.MEDIA_ROOT / 'thumbnails'},
+    ),
 ]
