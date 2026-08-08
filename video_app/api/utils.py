@@ -1,10 +1,7 @@
 """Helpers for the HLS endpoints."""
 
-from pathlib import Path
-
-from django.conf import settings
-
 from video_app.models import VideoVariant
+from video_app.services import hls_directory
 
 
 def build_hls_path(video_id, resolution, filename):
@@ -21,8 +18,7 @@ def build_hls_path(video_id, resolution, filename):
     """
     if resolution not in VideoVariant.Resolution.values:
         return None
-    base = Path(settings.MEDIA_ROOT) / "videos" / str(video_id) / resolution
-    base = base.resolve()
+    base = hls_directory(video_id, resolution).resolve()
     target = (base / filename).resolve()
     if not target.is_relative_to(base):
         return None
