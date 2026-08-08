@@ -7,6 +7,9 @@ direct link to it would render the guarded HLS endpoints pointless.
 
 Routing MEDIA_ROOT as a whole would serve both. These tests exist to keep the
 two apart.
+
+The probe file names are chosen to be unlikely to collide with anything an
+admin uploaded by hand.
 """
 
 from pathlib import Path
@@ -15,7 +18,6 @@ from django.conf import settings
 from django.test import TestCase
 from django.urls import Resolver404, resolve
 
-# A name unlikely to collide with anything an admin uploaded by hand.
 PROBE_IMAGE = "test_probe_thumbnail.txt"
 PROBE_SOURCE = "test_probe_source.txt"
 

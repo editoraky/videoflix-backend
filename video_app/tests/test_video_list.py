@@ -17,27 +17,9 @@ from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from video_app.models import Video
+from video_app.tests.support import CONTRACT_FIELDS, create_video
 
 User = get_user_model()
-
-CONTRACT_FIELDS = {
-    "id",
-    "created_at",
-    "title",
-    "description",
-    "thumbnail_url",
-    "category",
-}
-
-
-def create_video(title="A Film", category="drama", **extra):
-    return Video.objects.create(
-        title=title,
-        description="Some description.",
-        category=category,
-        video_file="uploads/videos/film.mp4",
-        **extra,
-    )
 
 
 class VideoListAuthenticationTests(APITestCase):

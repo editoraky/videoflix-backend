@@ -1,3 +1,5 @@
+from importlib import import_module
+
 from django.apps import AppConfig
 
 
@@ -6,9 +8,11 @@ class VideoAppConfig(AppConfig):
     name = 'video_app'
 
     def ready(self):
-        """Import the signal handlers so they are connected.
+        """Import the signal handlers so their receivers are connected.
 
         Without this the receivers are never registered and an uploaded video
-        stays unconverted — with no error anywhere to explain it.
+        stays unconverted, with no error anywhere to explain it. The module is
+        imported by name because importing it for its side effect alone reads
+        like an unused import.
         """
-        from . import signals  # noqa: F401
+        import_module(f'{self.name}.signals')

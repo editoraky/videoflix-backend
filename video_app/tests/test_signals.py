@@ -14,16 +14,8 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from video_app.models import Video, VideoVariant
-
-
-def create_video(title="Heavy Rain"):
-    return Video.objects.create(
-        title=title,
-        description="Water falls.",
-        category="drama",
-        video_file='uploads/videos/film.mp4',
-    )
+from video_app.models import VideoVariant
+from video_app.tests.support import create_video
 
 
 class EnqueueOnCreateTests(TestCase):

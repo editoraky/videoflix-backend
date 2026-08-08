@@ -13,19 +13,18 @@ from pathlib import Path
 from django.core.files import File
 
 from .models import ConversionStatus, Video, VideoVariant
-from .services import extract_thumbnail
-
-OPEN_STATES = (ConversionStatus.PENDING, ConversionStatus.PROCESSING)
-
-logger = logging.getLogger(__name__)
 from .services import (
     ConversionError,
     convert_to_hls,
+    extract_thumbnail,
     hls_directory,
     resolution_height,
 )
 
+OPEN_STATES = (ConversionStatus.PENDING, ConversionStatus.PROCESSING)
 THUMBNAIL_SUFFIX = '.jpg'
+
+logger = logging.getLogger(__name__)
 
 
 def convert_video_to_hls(video_id, resolution):

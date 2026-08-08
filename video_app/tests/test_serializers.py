@@ -11,15 +11,7 @@ from django.utils.dateparse import parse_datetime
 
 from video_app.api.serializers import VideoSerializer
 from video_app.models import Video
-
-CONTRACT_FIELDS = {
-    "id",
-    "created_at",
-    "title",
-    "description",
-    "thumbnail_url",
-    "category",
-}
+from video_app.tests.support import CONTRACT_FIELDS
 
 
 def serialize(video):

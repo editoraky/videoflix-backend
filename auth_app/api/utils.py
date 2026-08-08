@@ -94,8 +94,8 @@ def rotate_refresh_token(raw_token):
     old.blacklist()
     try:
         user = User.objects.get(pk=old["user_id"])
-    except User.DoesNotExist:
-        raise TokenError("The account behind this token no longer exists")
+    except User.DoesNotExist as missing:
+        raise TokenError("The account behind this token no longer exists") from missing
     new = RefreshToken.for_user(user)
     return {"access": new.access_token, "refresh": new}
 

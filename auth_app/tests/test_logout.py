@@ -10,6 +10,7 @@ when the access token has expired, and the API docs list no 401 for it.
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -70,8 +71,9 @@ class LogoutTests(APITestCase):
         self.assertEqual(BlacklistedToken.objects.count(), 1)
 
     def test_blacklisted_token_can_no_longer_be_refreshed(self):
+        """Naming the exception keeps the test from passing on an unrelated failure."""
         self.client.post(LOGOUT_URL)
-        with self.assertRaises(Exception):
+        with self.assertRaises(TokenError):
             RefreshToken(str(self.refresh)).check_blacklist()
 
     def test_logout_works_without_an_access_token(self):

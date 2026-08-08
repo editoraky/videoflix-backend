@@ -33,6 +33,12 @@ class Video(models.Model):
     would hand out the whole film in original quality without a login and make
     the authenticated HLS endpoints pointless. Keeping the two in separate
     subtrees means the public media route can cover thumbnails alone.
+
+    hls_error holds an empty string rather than NULL, so "no error" has exactly
+    one representation.
+
+    The ordering is part of the contract. The checklist asks for creation date
+    descending, and the frontend turns the first entry into its hero teaser.
     """
 
     title = models.CharField(max_length=100)
@@ -50,15 +56,12 @@ class Video(models.Model):
         choices=ConversionStatus.choices,
         default=ConversionStatus.PENDING,
     )
-    # Empty rather than NULL, so "no error" has exactly one representation.
     hls_error = models.TextField(blank=True, default="")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        # Checklist US 5 asks for creation date descending. The frontend turns
-        # the first entry into the hero teaser (video_list.js:104-107).
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["-created_at"], name="idx_videos_created_at"),
@@ -80,6 +83,10 @@ class VideoVariant(models.Model):
     The row also answers the question the streaming endpoints ask — does this
     manifest exist? — with a query instead of a look at the file system, which
     keeps those views testable without real segments on disk.
+
+    One row per video and resolution is enforced in the database. A retried job
+    has to update its row; a second one would leave the streaming view choosing
+    between duplicates, one of them stale.
     """
 
     class Resolution(models.TextChoices):
@@ -107,8 +114,6 @@ class VideoVariant(models.Model):
 
     class Meta:
         constraints = [
-            # A retried job has to update its row. A second one would leave the
-            # streaming view choosing between duplicates, one of them stale.
             models.UniqueConstraint(
                 fields=["video", "resolution"],
                 name="uq_variant_video_resolution",

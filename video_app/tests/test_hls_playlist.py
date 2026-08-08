@@ -123,12 +123,14 @@ class HlsPlaylistNotFoundTests(HlsPlaylistTestCase):
 
 
 class HlsPlaylistTraversalTests(HlsPlaylistTestCase):
-    """The resolution segment must never be able to leave its directory."""
+    """The resolution segment must never be able to leave its directory.
+
+    The file placed one level above the video tree stands in for .env.
+    """
 
     def setUp(self):
         super().setUp()
         self.authenticate()
-        # A file one level above the video tree stands in for .env.
         self.secret = Path(TEMPORARY_MEDIA_ROOT) / "secret.txt"
         self.secret.write_text("SECRET_KEY=do-not-serve-this")
 

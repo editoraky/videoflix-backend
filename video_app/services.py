@@ -54,25 +54,46 @@ def build_hls_command(source, destination, height):
 
     A list, never a string: the source name is derived from an upload, and a
     shell would treat characters in it as syntax.
-
-    force_key_frames is not in the reference command but has to be here. FFMPEG
-    only cuts segments at key frames, so without it the segment length is a
-    property of the uploaded file rather than of this setting.
     """
-    interval = SEGMENT_DURATION_SECONDS
+    destination = Path(destination)
     return [
         'ffmpeg', '-y', '-loglevel', 'error',
         '-i', str(source),
+        *encoding_options(height),
+        *segmentation_options(destination),
+        str(destination / PLAYLIST_NAME),
+    ]
+
+
+def encoding_options(height):
+    """Re-encode to the target height.
+
+    scale=-2 keeps the width even, which H.264 requires.
+
+    force_key_frames is not in the reference command but has to be here. FFMPEG
+    only cuts segments at key frames, so without it the segment length becomes a
+    property of the uploaded file rather than of this setting.
+    """
+    return [
         '-vf', f'scale=-2:{height}',
         '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
         '-c:a', 'aac', '-b:a', '128k',
-        '-force_key_frames', f'expr:gte(t,n_forced*{interval})',
+        '-force_key_frames', f'expr:gte(t,n_forced*{SEGMENT_DURATION_SECONDS})',
+    ]
+
+
+def segmentation_options(destination):
+    """Split the stream into the numbered segments the API documents.
+
+    hls_list_size 0 keeps every entry in the playlist, which is what a
+    video on demand needs — the default would drop older segments.
+    """
+    return [
         '-start_number', '0',
-        '-hls_time', str(interval),
+        '-hls_time', str(SEGMENT_DURATION_SECONDS),
         '-hls_list_size', '0',
         '-f', 'hls',
-        '-hls_segment_filename', str(Path(destination) / SEGMENT_PATTERN),
-        str(Path(destination) / PLAYLIST_NAME),
+        '-hls_segment_filename', str(destination / SEGMENT_PATTERN),
     ]
 
 
@@ -134,7 +155,9 @@ def run_ffmpeg(command):
             timeout=FFMPEG_TIMEOUT_SECONDS,
         )
     except subprocess.TimeoutExpired as expired:
-        raise ConversionError(f'FFMPEG timed out after {expired.timeout} seconds')
+        raise ConversionError(
+            f'FFMPEG timed out after {expired.timeout} seconds'
+        ) from expired
 
 
 def shorten(message):

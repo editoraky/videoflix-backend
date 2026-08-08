@@ -30,7 +30,7 @@ class VideoStatusTests(TestCase):
         )
 
     def add_variants(self, *states):
-        for resolution, status in zip(ALL_RESOLUTIONS, states):
+        for resolution, status in zip(ALL_RESOLUTIONS, states, strict=False):
             VideoVariant.objects.create(
                 video=self.video, resolution=resolution, status=status
             )

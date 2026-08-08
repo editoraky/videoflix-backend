@@ -3,6 +3,9 @@
 The admin is not a convenience here, it is the only way a film enters the
 system: the API documentation lists three GET endpoints for video and no
 upload at all. Whatever the admin cannot do, nobody can do.
+
+Uploads are written to disk, so these tests run against their own media root
+rather than leaving files behind in the volume that serves the application.
 """
 
 import shutil
@@ -16,8 +19,6 @@ from video_app.models import Video, VideoVariant
 
 User = get_user_model()
 
-# Uploads are written to disk, so the tests get their own media root instead of
-# leaving files behind in the volume that serves the running application.
 TEMPORARY_MEDIA_ROOT = tempfile.mkdtemp()
 
 
@@ -125,7 +126,12 @@ class VideoAdminFormTests(TestCase):
         self.assertEqual(Video.objects.count(), 1)
 
     def test_admin_rejects_a_document(self):
-        """The model validator has to run inside the admin form, not only in code."""
+        """The model validator has to run inside the admin form, not only in code.
+
+        Naming the field in the assertion matters: without it the test would
+        also pass if the form failed somewhere else entirely and never reached
+        the validator.
+        """
         response = self.client.post(
             "/admin/video_app/video/add/",
             add_form_payload(
@@ -136,8 +142,6 @@ class VideoAdminFormTests(TestCase):
             ),
         )
         self.assertEqual(Video.objects.count(), 0)
-        # Naming the field matters: without it the test would also pass if the
-        # form failed somewhere else entirely and never reached the validator.
         self.assertIn("video_file", response.context["adminform"].form.errors)
 
 

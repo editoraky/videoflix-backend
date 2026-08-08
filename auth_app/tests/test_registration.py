@@ -2,6 +2,10 @@
 
 Field names are not a design choice — they are whatever register.html sends:
 name="email", name="password", name="confirmed_password", name="privacy_policy".
+
+The URL is spelled out rather than reversed. It is part of the contract, since
+config.js builds it as API_BASE_URL + "register/", so a renamed route should
+break this test instead of silently breaking the frontend.
 """
 
 from django.contrib.auth import get_user_model
@@ -13,9 +17,6 @@ from auth_app.api.serializers import RegistrationSerializer
 
 User = get_user_model()
 
-# The path is part of the contract, not an implementation detail: config.js
-# builds it as API_BASE_URL + "register/". Hardcoding it here means a renamed
-# route breaks the test instead of silently breaking the frontend.
 REGISTER_URL = "/api/register/"
 
 

@@ -15,21 +15,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from video_app.models import Video, VideoVariant
-
-
-def create_video(title="A Film", category="drama", **extra):
-    """Create a video without touching the file system.
-
-    Assigning a plain string to a FileField stores the path only. Uploading a
-    real file would write into the media volume and leave test residue behind.
-    """
-    return Video.objects.create(
-        title=title,
-        description="Some description.",
-        category=category,
-        video_file="uploads/videos/film.mp4",
-        **extra,
-    )
+from video_app.tests.support import create_video
 
 
 class VideoFieldTests(TestCase):
@@ -117,13 +103,15 @@ class VideoOrderingTests(TestCase):
         self.assertEqual(Video._meta.ordering, ["-created_at"])
 
     def test_default_queryset_starts_with_the_newest_video(self):
-        """A declared ordering is worthless if the query does not apply it."""
+        """A declared ordering is worthless if the query does not apply it.
+
+        auto_now_add ignores assigned values, so the timestamps are rewritten
+        afterwards with update(), which bypasses save() and therefore auto_now.
+        """
         now = timezone.now()
         oldest = create_video(title="Oldest")
         middle = create_video(title="Middle")
         newest = create_video(title="Newest")
-        # auto_now_add ignores assigned values, so the timestamps are rewritten
-        # afterwards. update() bypasses save() and therefore auto_now as well.
         for video, age_in_days in ((oldest, 3), (middle, 2), (newest, 1)):
             Video.objects.filter(pk=video.pk).update(
                 created_at=now - timedelta(days=age_in_days)

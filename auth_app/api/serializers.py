@@ -1,4 +1,10 @@
-"""Serializers for authentication endpoints."""
+"""Serializers for authentication endpoints.
+
+GENERIC_ERROR answers every rejection with the same sentence. The checklist
+requires that for registration and login: a specific "this email is already
+registered" would let anyone probe which addresses hold an account, so a taken
+address has to be indistinguishable from a mistyped password.
+"""
 
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
@@ -6,10 +12,6 @@ from rest_framework import serializers
 
 User = get_user_model()
 
-# Checklist US 1 and US 2 require generic messages: a specific "this email is
-# already registered" would let anyone probe which addresses hold an account.
-# Every rejection therefore carries this one sentence, so a taken address is
-# indistinguishable from a mistyped password.
 GENERIC_ERROR = "Please check your input and try again."
 
 
@@ -50,8 +52,8 @@ class RegistrationSerializer(serializers.ModelSerializer):
         """
         try:
             return super().run_validation(data)
-        except serializers.ValidationError:
-            raise serializers.ValidationError({"detail": [GENERIC_ERROR]})
+        except serializers.ValidationError as error:
+            raise serializers.ValidationError({"detail": [GENERIC_ERROR]}) from error
 
     def create(self, validated_data):
         """Store the address in both username and email, leaving the account locked."""
