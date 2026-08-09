@@ -301,7 +301,7 @@ A single module:
 docker compose exec web python manage.py test video_app.tests.test_video_list
 ```
 
-268 tests cover registration, activation, login, logout, token refresh, password
+290 tests cover registration, activation, login, logout, token refresh, password
 reset, delivery failures of the mail server, the video models, the admin, the list
 endpoint, HLS delivery including path traversal attempts, the conversion services
 and the background jobs. Some of them invoke FFMPEG on generated test clips, which
