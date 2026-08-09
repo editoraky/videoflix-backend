@@ -1,10 +1,10 @@
-# Das Entrypoint-Script wird im Linux-Container ausgefuehrt.
-# Mit CRLF-Zeilenenden schlaegt der Start mit
-# "exec ./backend.entrypoint.sh: no such file or directory" fehl,
-# weil der Shebang dann auf "/bin/sh\r" zeigt.
+# The entrypoint script runs inside the Linux container. With CRLF line endings
+# the start fails with
+# "exec ./backend.entrypoint.sh: no such file or directory",
+# because the shebang then points at "/bin/sh\r".
 *.sh text eol=lf
 backend.entrypoint.sh text eol=lf
 
-# Aus demselben Grund fuer die uebrigen Container-Dateien.
+# Same reason for the remaining container files.
 *.Dockerfile text eol=lf
 docker-compose.yml text eol=lf
