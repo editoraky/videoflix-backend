@@ -1,4 +1,16 @@
-"""Outgoing emails for the authentication flow."""
+"""Outgoing emails for the authentication flow.
+
+Delivery failures never reach the caller. An SMTP server is a service outside
+this application — providers throttle, credentials expire, hosts go away — and
+the documented answers of these endpoints must not depend on it.
+
+For the password reset that is not merely robustness but the contract itself:
+an unknown address sends no mail and always answers 200, so a known address
+answering 500 on a delivery failure would reveal which addresses hold an
+account. Failures are written to the log instead, where they belong.
+"""
+
+import logging
 
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
@@ -11,6 +23,23 @@ ACTIVATION_PATH = "/pages/auth/activate.html"
 ACTIVATION_SUBJECT = "Confirm your email"
 RESET_PATH = "/pages/auth/confirm_password.html"
 RESET_SUBJECT = "Reset your Password"
+
+logger = logging.getLogger(__name__)
+
+
+def deliver(message, purpose):
+    """Send a message and report whether it went out.
+
+    Catches every exception on purpose. Anything the mail library raises —
+    refusal, timeout, broken connection — is an operational problem, not a
+    reason to fail the request that triggered it.
+    """
+    try:
+        message.send()
+    except Exception as error:
+        logger.warning("Could not send the %s email: %s", purpose, error)
+        return False
+    return True
 
 
 def build_activation_link(user):
@@ -40,7 +69,7 @@ def send_activation_email(user):
         to=[user.email],
     )
     message.attach_alternative(render_to_string("emails/activation.html", context), "text/html")
-    message.send()
+    return deliver(message, "activation")
 
 
 def build_reset_link(user):
@@ -65,4 +94,4 @@ def send_password_reset_email(user):
     message.attach_alternative(
         render_to_string("emails/password_reset.html", context), "text/html"
     )
-    message.send()
+    return deliver(message, "password reset")
