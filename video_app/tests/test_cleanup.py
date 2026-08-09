@@ -16,6 +16,7 @@ from pathlib import Path
 from django.test import TestCase, override_settings
 
 from video_app.models import Video
+from video_app.signals import remove_rendition_folder
 
 TEMPORARY_MEDIA_ROOT = tempfile.mkdtemp()
 
@@ -89,3 +90,17 @@ class DeletionCleanupTests(TestCase):
         first.delete()
         self.assertTrue((survivor / 'index.m3u8').is_file())
         self.assertTrue(Path(TEMPORARY_MEDIA_ROOT, second.video_file.name).is_file())
+
+    def test_an_empty_identifier_deletes_nothing(self):
+        """Without the guard the path would collapse onto the folder of all videos.
+
+        The identifier comes from the database and is never empty in practice,
+        which is precisely why the safeguard needs a test of its own — nothing
+        else would ever exercise it.
+        """
+        self.make_video("Bystander")
+        all_videos = Path(TEMPORARY_MEDIA_ROOT) / 'videos'
+        for empty in (None, '', 0):
+            with self.subTest(video_id=empty):
+                remove_rendition_folder(empty)
+                self.assertTrue(all_videos.is_dir())

@@ -20,6 +20,7 @@ class VideoVariantInline(admin.TabularInline):
     readonly_fields = fields
 
     def has_add_permission(self, request, obj):
+        """Refuse hand-written variants; only the worker may create them."""
         return False
 
 

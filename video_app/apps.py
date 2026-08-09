@@ -1,9 +1,13 @@
+"""App configuration for the video library."""
+
 from importlib import import_module
 
 from django.apps import AppConfig
 
 
 class VideoAppConfig(AppConfig):
+    """Registers the app and connects its signal handlers on startup."""
+
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'video_app'
 
